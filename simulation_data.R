@@ -10,10 +10,16 @@ library(tidyverse)
 #### Download input files
 base_dir <- "C:\\data\\bartz_project"
 data_dir <- file.path(base_dir,"data")
+out_dir  <- file.path(base_dir,"output")
 
 #If the data directory doesnt exist, create it
 if (!dir.exists(data_dir)) {
   dir.create(data_dir, recursive = TRUE)
+}
+
+#If the data directory doesnt exist, create it
+if (!dir.exists(out_dir)) {
+  dir.create(out_dir, recursive = TRUE)
 }
 
 #store the zip in a temp directory
@@ -80,7 +86,7 @@ mutate( ces_size = recode_values(size_code,   # I recode from QCEW to CES size c
         9~8)) |>
   select(-size_code) |>    #remove QCEW Size code
   group_by(  state_fips, industry_code, ces_size,  year,   qtr) |> #resummarize variables 
-  summarise(across(everything(), sum, na.rm = TRUE)) |> ## Resummarize all columns not in group_by
+  summarise(across(everything(), \(x)sum(x, na.rm = TRUE) )) |> ## Resummarize all columns not in group_by
   ungroup() |>  #ungroup to avoid complications later
   mutate( beta_m2m3    = month3_emplvl/month2_emplvl,         #change from month2 to month3 current year
           py_beta_m2m3 = py_month3_emplvl/py_month2_emplvl,   #change from month2 to month3 previous year
@@ -135,9 +141,13 @@ generate <- function( state_fips, industry_code, ces_size, year, qtr, py_qtrly_e
 
 }
 
+
+
 ### for each row of the data frame we created, generate samples from it
 frame <- df |> pmap(generate) |> bind_rows()
 
+#write the output to csv
+write_csv(frame,file.path(out_dir,"simulations_pop.csv"))
 
 #frame |> summarize(m1y=sum(m1y),m2y=sum(m2y))
 #######################################################################################
@@ -258,4 +268,8 @@ pop_totals <- frame |> summarize(m1y = sum(m1y), m2y=sum(m2y))
 sample_ests |> ggplot(aes(x=m1y_est,y=m2y_est)) + 
                 geom_point() + 
                 geom_point(aes(x=m1y,y=m2y),size=8,color="red",data=pop_totals)
+
+
+
+
 
