@@ -219,19 +219,24 @@ allocation <- allocation |>
 ############################################
 ###### Begin sampling 
 
-
+#I nest the data frame and left join sample sizes onto it
 frame_nest <- 
 frame |> 
   group_by(state_fips,industry_code,ces_size) |> 
   nest() |> 
   left_join(allocation,by=c("state_fips", "industry_code", "ces_size"))
 
-
+##number of samples to dr
 n_samps <- 150
+
+#bucket to hold sample estimates
+#I will add to this each time I draw a sample and estimate
 sample_ests <- tibble()
 
+#draw n_samps and create an estimate for each
 for(i in 1:n_samps){
   print(i)
+
   #run a sample
   s1<- 
   frame_nest |> 
@@ -240,13 +245,16 @@ for(i in 1:n_samps){
     unnest(sample) |> 
     ungroup()
 
+  #create a horvitz thompsons estimate for a total for month1 and month2
+  #In the last step, I add this as a row onto our dataframe sample_ests
   sample_ests <- s1 |> summarize(m1y_est=sum(w*m1y),
                      m2y_est=sum(w*m2y)) |> bind_rows(sample_ests)
 }
 
-
+#I grab the true frame total for each month cause I want to plot it
 pop_totals <- frame |> summarize(m1y = sum(m1y), m2y=sum(m2y))
 
+#make scatter plot of estimates and add the population value
 sample_ests |> ggplot(aes(x=m1y_est,y=m2y_est)) + 
                 geom_point() + 
                 geom_point(aes(x=m1y,y=m2y),size=8,color="red",data=pop_totals)
